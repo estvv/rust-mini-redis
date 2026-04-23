@@ -3,7 +3,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Request {
     Get(String),
-    Set { key: String, value: String, expiration: Option<u64> },
+    Set {
+        key: String,
+        value: String,
+        expiration: Option<u64>,
+    },
     Del(String),
     Save(String),
     Load(String),
@@ -68,7 +72,9 @@ impl Request {
                     return Err("Invalid SET request. EXP requires a value".to_string());
                 }
 
-                let exp: u64 = parts[idx + 1].parse().map_err(|_| "Invalid expiration value".to_string())?;
+                let exp: u64 = parts[idx + 1]
+                    .parse()
+                    .map_err(|_| "Invalid expiration value".to_string())?;
                 let value = parts[2..idx].join(" ");
 
                 (parts[1].to_string(), value, Some(exp))
@@ -79,7 +85,11 @@ impl Request {
             }
         };
 
-        Ok(Request::Set { key, value, expiration })
+        Ok(Request::Set {
+            key,
+            value,
+            expiration,
+        })
     }
 
     pub fn del_callback(parts: Vec<&str>) -> Result<Self, String> {

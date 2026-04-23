@@ -18,7 +18,11 @@ impl Dispatcher {
     pub fn dispatch(&mut self, request: Request) -> Return {
         match request {
             Request::Get(key) => self.get(key),
-            Request::Set { key, value, expiration } => self.set(key, value, expiration),
+            Request::Set {
+                key,
+                value,
+                expiration,
+            } => self.set(key, value, expiration),
             Request::Del(key) => self.del(key),
             Request::Save(filename) => self.save(filename),
             Request::Load(filename) => self.load(filename),

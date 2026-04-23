@@ -25,20 +25,40 @@ impl Stock {
     }
 
     pub fn set(&mut self, key: String, value: String) {
-        self.map.insert(key, Data { value, expiration: None });
+        self.map.insert(
+            key,
+            Data {
+                value,
+                expiration: None,
+            },
+        );
     }
 
     pub fn set_with_expiration(&mut self, key: String, value: String, duration: u64) {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
         let expiration = now + duration;
 
-        self.map.insert(key, Data { value, expiration: Some(expiration) });
+        self.map.insert(
+            key,
+            Data {
+                value,
+                expiration: Some(expiration),
+            },
+        );
     }
 
     pub fn get(&mut self, key: &String) -> Option<&String> {
-        if let Some(data) = self.map.get(key) {
-            if let Some(expiration) = data.expiration {
-                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
+        let data = self.map.get(key);
+
+        if data.is_some() {
+            if let Some(expiration) = data.unwrap().expiration {
+                let now = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis() as u64;
 
                 if now > expiration {
                     self.del(key);
