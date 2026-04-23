@@ -3,15 +3,14 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Request {
     Get(String),
-    Set {
-        key: String,
-        value: String,
-        expiration: Option<u64>,
-    },
+    Set { key: String, value: String, expiration: Option<u64> },
     Del(String),
     Save(String),
     Load(String),
     Drop(),
+    Pub { channel: String, message: String },
+    Sub(String),
+    Unsub(String),
 }
 
 const GET_MIN_ARGS: usize = 2;
@@ -24,6 +23,11 @@ const DEL_MAX_ARGS: usize = 2;
 
 const SAVE_ARGS: usize = 2;
 const LOAD_ARGS: usize = 2;
+
+const PUB_MIN_ARGS: usize = 3;
+
+const SUB_MIN_ARGS: usize = 2;
+const SUB_MAX_ARGS: usize = 2;
 
 impl Request {
     pub fn parse(input: &str) -> Result<Self, String> {
@@ -40,6 +44,9 @@ impl Request {
             "SAVE" => Request::save_callback(parts),
             "LOAD" => Request::load_callback(parts),
             "DROP" => Request::drop_callback(),
+            "PUB" => Request::pub_callback(parts),
+            "SUB" => Request::sub_callback(parts),
+            "UNSUB" => Request::unsub_callback(parts),
             _ => Err("Unknown command".to_string()),
         }
     }
@@ -130,5 +137,36 @@ impl Request {
 
     pub fn drop_callback() -> Result<Self, String> {
         Ok(Request::Drop())
+    }
+
+    pub fn pub_callback(parts: Vec<&str>) -> Result<Self, String> {
+        if parts.len() < PUB_MIN_ARGS {
+            Err("Invalid PUB request. Need channel and message arguments.".to_string())
+        } else {
+            let channel = parts[1].to_string();
+            let message = parts[2..].join(" ");
+
+            Ok(Request::Pub { channel, message })
+        }
+    }
+
+    pub fn sub_callback(parts: Vec<&str>) -> Result<Self, String> {
+        if parts.len() < SUB_MIN_ARGS {
+            Err("Invalid SUB request. Need channel argument.".to_string())
+        } else if parts.len() > SUB_MAX_ARGS {
+            Err("Invalid SUB request. Too many arguments.".to_string())
+        } else {
+            Ok(Request::Sub(parts[1].to_string()))
+        }
+    }
+
+    pub fn unsub_callback(parts: Vec<&str>) -> Result<Self, String> {
+        if parts.len() < SUB_MIN_ARGS {
+            Err("Invalid UNSUB request. Need channel argument.".to_string())
+        } else if parts.len() > SUB_MAX_ARGS {
+            Err("Invalid UNSUB request. Too many arguments.".to_string())
+        } else {
+            Ok(Request::Unsub(parts[1].to_string()))
+        }
     }
 }

@@ -1,21 +1,27 @@
 // src/dispatcher.rs
 
+use crate::channel_manager::ChannelManager;
 use crate::request::Request;
 use crate::returns::Return;
 use crate::stock::Stock;
+use std::collections::HashMap;
 
 pub struct Dispatcher {
     stock: Stock,
+    channel_manager: ChannelManager,
+    client_subscriptions: HashMap<u64, String>,
 }
 
 impl Dispatcher {
     pub fn new() -> Self {
         Dispatcher {
             stock: Stock::new(),
+            channel_manager: ChannelManager::new(),
+            client_subscriptions: HashMap::new(),
         }
     }
 
-    pub fn dispatch(&mut self, request: Request) -> Return {
+    pub fn dispatch(&mut self, request: Request, client_id: u64) -> Return {
         match request {
             Request::Get(key) => self.get(key),
             Request::Set {
@@ -27,6 +33,9 @@ impl Dispatcher {
             Request::Save(filename) => self.save(filename),
             Request::Load(filename) => self.load(filename),
             Request::Drop() => self.drop(),
+            Request::Pub { channel, message } => self.publish(channel, message),
+            Request::Sub(channel) => self.subscribe(channel, client_id),
+            Request::Unsub(channel) => self.unsubscribe(channel, client_id),
         }
     }
 
@@ -34,6 +43,7 @@ impl Dispatcher {
         if self.stock.get(&key).is_none() {
             return Return::NotFound(key.to_string());
         }
+
         Return::Ok(self.stock.get(&key).unwrap().to_string())
     }
 
@@ -42,6 +52,7 @@ impl Dispatcher {
             self.stock.set(key, value);
             return Return::Ok("OK".into());
         }
+
         self.stock
             .set_with_expiration(key, value, expiration.unwrap());
         Return::Ok("OK".into())
@@ -51,6 +62,7 @@ impl Dispatcher {
         if !self.stock.get(&key).is_some() {
             return Return::NotFound(key.to_string());
         }
+
         self.stock.del(&key);
         Return::Ok("OK".into())
     }
@@ -72,5 +84,43 @@ impl Dispatcher {
     pub fn drop(&mut self) -> Return {
         self.stock.drop();
         Return::Ok("OK".into())
+    }
+
+    pub fn publish(&mut self, channel: String, message: String) -> Return {
+        match self.channel_manager.publish(&channel, &message) {
+            Ok(count) => Return::Ok(format!("Published to {} subscriber(s)", count)),
+            Err(e) => Return::Err(e),
+        }
+    }
+
+    pub fn subscribe(&mut self, channel: String, client_id: u64) -> Return {
+        self.client_subscriptions.insert(client_id, channel.clone());
+        let receiver = self.channel_manager.subscribe(channel);
+
+        Return::Subscribe(receiver)
+    }
+
+    pub fn unsubscribe(&mut self, channel: String, client_id: u64) -> Return {
+        if !self.channel_manager.channel_exists(&channel) {
+            return Return::Err(format!("Channel '{}' does not exist", channel));
+        }
+
+        match self.client_subscriptions.get(&client_id) {
+            Some(subscribed_channel) => {
+                if subscribed_channel != &channel {
+                    return Return::Err(format!("Not subscribed to channel '{}'", channel));
+                }
+            }
+            None => {
+                return Return::Err("Not subscribed to any channel".to_string());
+            }
+        }
+
+        self.client_subscriptions.remove(&client_id);
+        Return::Unsubscribe
+    }
+
+    pub fn cleanup_client(&mut self, client_id: u64) {
+        self.client_subscriptions.remove(&client_id);
     }
 }
