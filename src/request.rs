@@ -3,8 +3,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Request {
     Get(String),
-    Set(String, String),
+    Set { key: String, value: String, expiration: Option<u64> },
     Del(String),
+    Save(String),
+    Load(String),
+    Drop(),
 }
 
 const GET_MIN_ARGS: usize = 2;
@@ -14,6 +17,9 @@ const SET_MIN_ARGS: usize = 3;
 
 const DEL_MIN_ARGS: usize = 2;
 const DEL_MAX_ARGS: usize = 2;
+
+const SAVE_ARGS: usize = 2;
+const LOAD_ARGS: usize = 2;
 
 impl Request {
     pub fn parse(input: &str) -> Result<Self, String> {
@@ -27,6 +33,9 @@ impl Request {
             "GET" => Request::get_callback(parts),
             "SET" => Request::set_callback(parts),
             "DEL" => Request::del_callback(parts),
+            "SAVE" => Request::save_callback(parts),
+            "LOAD" => Request::load_callback(parts),
+            "DROP" => Request::drop_callback(),
             _ => Err("Unknown command".to_string()),
         }
     }
@@ -43,12 +52,34 @@ impl Request {
 
     pub fn set_callback(parts: Vec<&str>) -> Result<Self, String> {
         if parts.len() < SET_MIN_ARGS {
-            Err("Invalid SET request. Too few arguments".to_string())
-        } else {
-            let value = parts[2..].join(" ");
-
-            Ok(Request::Set(parts[1].to_string(), value))
+            return Err("Invalid SET request. Too few arguments".to_string());
         }
+
+        let exp_index = parts.iter().position(|p| p.to_uppercase() == "EXP");
+
+        let (key, value, expiration) = match exp_index {
+            Some(idx) => {
+                if idx < 2 {
+                    return Err(
+                        "Invalid SET request. EXP cannot be before key and value".to_string()
+                    );
+                }
+                if idx + 1 >= parts.len() {
+                    return Err("Invalid SET request. EXP requires a value".to_string());
+                }
+
+                let exp: u64 = parts[idx + 1].parse().map_err(|_| "Invalid expiration value".to_string())?;
+                let value = parts[2..idx].join(" ");
+
+                (parts[1].to_string(), value, Some(exp))
+            }
+            None => {
+                let value = parts[2..].join(" ");
+                (parts[1].to_string(), value, None)
+            }
+        };
+
+        Ok(Request::Set { key, value, expiration })
     }
 
     pub fn del_callback(parts: Vec<&str>) -> Result<Self, String> {
@@ -59,5 +90,35 @@ impl Request {
         } else {
             Ok(Request::Del(parts[1].to_string()))
         }
+    }
+
+    pub fn save_callback(parts: Vec<&str>) -> Result<Self, String> {
+        if parts.len() < SAVE_ARGS {
+            Err("Invalid SAVE request. Need filename argument.".to_string())
+        } else if parts.len() > SAVE_ARGS {
+            Err("Invalid SAVE request. Too many arguments".to_string())
+        } else {
+            if !parts[1].ends_with(".json") {
+                return Err("Invalid SAVE request. Filename must end with .json".to_string());
+            }
+            Ok(Request::Save(parts[1].to_string()))
+        }
+    }
+
+    pub fn load_callback(parts: Vec<&str>) -> Result<Self, String> {
+        if parts.len() < LOAD_ARGS {
+            Err("Invalid LOAD request. Need filename argument.".to_string())
+        } else if parts.len() > LOAD_ARGS {
+            Err("Invalid LOAD request. Too many arguments".to_string())
+        } else {
+            if !parts[1].ends_with(".json") {
+                return Err("Invalid LOAD request. Filename must end with .json".to_string());
+            }
+            Ok(Request::Load(parts[1].to_string()))
+        }
+    }
+
+    pub fn drop_callback() -> Result<Self, String> {
+        Ok(Request::Drop())
     }
 }
