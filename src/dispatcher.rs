@@ -17,11 +17,9 @@ impl Dispatcher {
 
     pub fn dispatch(&mut self, request: Request) -> Return {
         match request {
-            Request::Get(key) => self
-                .get(&key)
-                .map_or_else(|| Return::NotFound(key), Return::Ok),
+            Request::Get(key) => self.get(&key).map_or_else(|| Return::NotFound(key), Return::Ok),
             Request::Set(key, value) => Return::Ok(self.set(key, value)),
-            Request::Del(key) => Return::Ok(self.del(key)),
+            Request::Del(key) => self.del(&key).map_or_else(|| Return::NotFound(key), Return::Ok),
         }
     }
 
@@ -34,8 +32,11 @@ impl Dispatcher {
         "OK".into()
     }
 
-    pub fn del(&mut self, key: String) -> String {
-        self.stock.del(&key);
-        "OK".into()
+    pub fn del(&mut self, key: &str) -> Option<String> {
+        if !self.stock.get(key).is_some() {
+            return None;
+        }
+        self.stock.del(key);
+        Some("OK".into())
     }
 }

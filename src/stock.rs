@@ -21,7 +21,7 @@ impl Stock {
         self.map.get(key)
     }
 
-    pub fn del(&mut self, key: &str) {
-        self.map.remove(key);
+    pub fn del(&mut self, key: &str) -> Option<String> {
+        self.map.remove(key)
     }
 }
