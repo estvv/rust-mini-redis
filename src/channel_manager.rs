@@ -17,10 +17,8 @@ impl ChannelManager {
     }
 
     pub fn subscribe(&mut self, channel: String) -> broadcast::Receiver<String> {
-        let sender = self
-            .channels
-            .entry(channel.clone())
-            .or_insert_with(|| broadcast::channel(16).0);
+        let sender = self.channels.entry(channel.clone()).or_insert_with(|| broadcast::channel(16).0);
+
         sender.subscribe()
     }
 
@@ -28,9 +26,8 @@ impl ChannelManager {
         match self.channels.get(channel) {
             Some(sender) => {
                 let full_message = format!("MESSAGE {} {}", channel, message);
-                sender
-                    .send(full_message)
-                    .map_err(|e| format!("Failed to publish: {}", e))
+
+                sender.send(full_message).map_err(|e| format!("Failed to publish: {}", e))
             }
             None => Ok(0),
         }

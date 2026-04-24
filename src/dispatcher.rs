@@ -23,17 +23,18 @@ impl Dispatcher {
 
     pub fn dispatch(&mut self, request: Request, client_id: u64) -> Return {
         match request {
-            Request::Get(key) => self.get(key),
-            Request::Set { key, value, expiration } => self.set(key, value, expiration),
-            Request::Del(key) => self.del(key),
-            Request::Incr(key) => self.incr(key),
-            Request::Decr(key) => self.decr(key),
-            Request::Save(filename) => self.save(filename),
-            Request::Load(filename) => self.load(filename),
-            Request::Drop() => self.drop(),
-            Request::Pub { channel, message } => self.publish(channel, message),
-            Request::Sub(channel) => self.subscribe(channel, client_id),
-            Request::Unsub(channel) => self.unsubscribe(channel, client_id),
+            Request::GET(key) => self.get(key),
+            Request::SET { key, value, expiration } => self.set(key, value, expiration),
+            Request::DEL(key) => self.del(key),
+            Request::INCR(key) => self.incr(key),
+            Request::DECR(key) => self.decr(key),
+            Request::SAVE(filename) => self.save(filename),
+            Request::LOAD(filename) => self.load(filename),
+            Request::DROP() => self.drop(),
+            Request::PUB { channel, message } => self.publish(channel, message),
+            Request::SUB(channel) => self.subscribe(channel, client_id),
+            Request::UNSUB(channel) => self.unsubscribe(channel, client_id),
+            Request::TTL(key) => self.ttl(key),
         }
     }
 
@@ -134,5 +135,16 @@ impl Dispatcher {
 
     pub fn cleanup_client(&mut self, client_id: u64) {
         self.client_subscriptions.remove(&client_id);
+    }
+
+    pub fn ttl(&mut self, key: String) -> Return {
+        if self.stock.get(&key).is_none() {
+            return Return::NotFound(key.to_string());
+        }
+
+        match self.stock.ttl(key.clone()) {
+            Some(ttl) => Return::Ok(ttl.to_string() + "ms"),
+            None => Return::Ok("None".to_string()),
+        }
     }
 }

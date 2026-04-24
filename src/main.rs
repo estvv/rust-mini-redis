@@ -1,20 +1,13 @@
 // src/main.rs
 
-mod dispatcher;
-mod channel_manager;
-mod request;
-mod returns;
-mod stock;
-
+use rust_mini_redis::dispatcher::Dispatcher;
+use rust_mini_redis::request::Request;
+use rust_mini_redis::returns::Return;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast, Mutex};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-
-use crate::dispatcher::Dispatcher;
-use crate::request::Request;
-use crate::returns::Return;
 
 static CLIENT_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 
@@ -127,9 +120,7 @@ async fn handle_client(stream: TcpStream, dispatcher: Arc<Mutex<Dispatcher>>) {
 
 #[tokio::main]
 async fn main() {
-    let listener = TcpListener::bind("127.0.0.1:6379")
-        .await
-        .expect("Unable to open port");
+    let listener = TcpListener::bind("127.0.0.1:6379").await.expect("Unable to open port");
 
     println!("Started on port 6379.");
     println!("Press Ctrl+C to shutdown.");

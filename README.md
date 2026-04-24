@@ -41,7 +41,7 @@ A lightweight, thread-safe key-value store built in Rust with async I/O and pub/
 |--------|-------------|
 | `main.rs` | TCP server, connection handling, client ID assignment, graceful shutdown |
 | `dispatcher.rs` | Request routing, command execution, subscription tracking |
-| `request.rs` | Request parsing (GET, SET, DEL, INCR, DECR, SAVE, LOAD, DROP, PUB, SUB, UNSUB) |
+| `request.rs` | Request parsing (GET, SET, DEL, INCR, DECR, SAVE, LOAD, DROP, PUB, SUB, UNSUB, TTL) |
 | `stock.rs` | Key-value storage with expiration support and JSON persistence |
 | `channel_manager.rs` | Pub/sub channel management with broadcast channels |
 | `returns.rs` | Return types (Ok, Err, NotFound, Subscribe, Unsubscribe) |
@@ -51,6 +51,7 @@ A lightweight, thread-safe key-value store built in Rust with async I/O and pub/
 ### Core Logic & Data Operations
 - **GET/SET/DEL** - Basic key-value store operations
 - **SET EXP** - Key expiration with TTL parameter
+- **TTL** - Get remaining time to live for a key
 - **INCR/DECR** - Atomic increment and decrement for counters
 - **DROP** - Clear all data from the store
 - **ASYNC SERVER** - Multi-threaded async server with Tokio runtime
@@ -89,6 +90,7 @@ telnet localhost 6379
 | `GET <key>` | Retrieve a value by key | `GET mykey` |
 | `SET <key> <value> [EXP <ms>]` | Set a key-value pair with optional expiration | `SET mykey hello EXP 5000` |
 | `DEL <key>` | Delete a key | `DEL mykey` |
+| `TTL <key>` | Get remaining time to live for a key (in ms) | `TTL mykey` |
 | `INCR <key>` | Increment value by 1 (creates key with value 1 if not exists) | `INCR counter` |
 | `DECR <key>` | Decrement value by 1 (creates key with value -1 if not exists) | `DECR counter` |
 | `SAVE <file.json>` | Save state to `./data/<file.json>` | `SAVE dump.json` |
@@ -98,7 +100,7 @@ telnet localhost 6379
 | `SUB <channel>` | Subscribe to a channel | `SUB news` |
 | `UNSUB <channel>` | Unsubscribe from a channel | `UNSUB news` |
 
-**Expiration**: TTL in milliseconds. Expired keys are removed lazily on `GET`.
+**Expiration**: TTL in seconds. Expired keys are removed lazily on `GET` or `TTL`.
 
 **Pub/Sub**: Each client can subscribe to one channel at a time. Messages are broadcast to all subscribers.
 
@@ -113,6 +115,8 @@ GET username
 alice
 SET temp data EXP 3000
 OK
+TTL temp
+3000
 GET temp
 data
 # (after 3 seconds)

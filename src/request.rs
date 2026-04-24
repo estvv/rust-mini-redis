@@ -1,25 +1,19 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum Request {
-    Get(String),
-    Set {
-        key: String,
-        value: String,
-        expiration: Option<u64>,
-    },
-    Del(String),
-    Incr(String),
-    Decr(String),
-    Save(String),
-    Load(String),
-    Drop(),
-    Pub {
-        channel: String,
-        message: String,
-    },
-    Sub(String),
-    Unsub(String),
+    GET(String),
+    SET { key: String, value: String, expiration: Option<u64> },
+    DEL(String),
+    INCR(String),
+    DECR(String),
+    SAVE(String),
+    LOAD(String),
+    DROP(),
+    PUB { channel: String, message: String },
+    SUB(String),
+    UNSUB(String),
+    TTL(String),
 }
 
 const GET_MIN_ARGS: usize = 2;
@@ -44,6 +38,9 @@ const PUB_MIN_ARGS: usize = 3;
 const SUB_MIN_ARGS: usize = 2;
 const SUB_MAX_ARGS: usize = 2;
 
+const TTL_MIN_ARGS: usize = 2;
+const TTL_MAX_ARGS: usize = 2;
+
 impl Request {
     pub fn parse(input: &str) -> Result<Self, String> {
         let parts: Vec<&str> = input.trim().split_whitespace().collect();
@@ -64,6 +61,7 @@ impl Request {
             "PUB" => Request::pub_callback(parts),
             "SUB" => Request::sub_callback(parts),
             "UNSUB" => Request::unsub_callback(parts),
+            "TTL" => Request::ttl_callback(parts),
             _ => Err("Unknown command".to_string()),
         }
     }
@@ -74,7 +72,7 @@ impl Request {
         } else if parts.len() > GET_MAX_ARGS {
             Err("Invalid GET request. Too many arguments".to_string())
         } else {
-            Ok(Request::Get(parts[1].to_string()))
+            Ok(Request::GET(parts[1].to_string()))
         }
     }
 
@@ -96,9 +94,7 @@ impl Request {
                     return Err("Invalid SET request. EXP requires a value".to_string());
                 }
 
-                let exp: u64 = parts[idx + 1]
-                    .parse()
-                    .map_err(|_| "Invalid expiration value".to_string())?;
+                let exp: u64 = parts[idx + 1].parse().map_err(|_| "Invalid expiration value".to_string())?;
                 let value = parts[2..idx].join(" ");
 
                 (parts[1].to_string(), value, Some(exp))
@@ -109,7 +105,7 @@ impl Request {
             }
         };
 
-        Ok(Request::Set {
+        Ok(Request::SET {
             key,
             value,
             expiration,
@@ -122,7 +118,7 @@ impl Request {
         } else if parts.len() > DEL_MAX_ARGS {
             Err("Invalid DEL request. Too many arguments".to_string())
         } else {
-            Ok(Request::Del(parts[1].to_string()))
+            Ok(Request::DEL(parts[1].to_string()))
         }
     }
 
@@ -132,7 +128,7 @@ impl Request {
         } else if parts.len() > INCR_MAX_ARGS {
             Err("Invalid INCR request. Too many arguments".to_string())
         } else {
-            Ok(Request::Incr(parts[1].to_string()))
+            Ok(Request::INCR(parts[1].to_string()))
         }
     }
 
@@ -142,7 +138,7 @@ impl Request {
         } else if parts.len() > DECR_MAX_ARGS {
             Err("Invalid DECR request. Too many arguments".to_string())
         } else {
-            Ok(Request::Decr(parts[1].to_string()))
+            Ok(Request::DECR(parts[1].to_string()))
         }
     }
 
@@ -155,7 +151,7 @@ impl Request {
             if !parts[1].ends_with(".json") {
                 return Err("Invalid SAVE request. Filename must end with .json".to_string());
             }
-            Ok(Request::Save(parts[1].to_string()))
+            Ok(Request::SAVE(parts[1].to_string()))
         }
     }
 
@@ -168,12 +164,12 @@ impl Request {
             if !parts[1].ends_with(".json") {
                 return Err("Invalid LOAD request. Filename must end with .json".to_string());
             }
-            Ok(Request::Load(parts[1].to_string()))
+            Ok(Request::LOAD(parts[1].to_string()))
         }
     }
 
     pub fn drop_callback() -> Result<Self, String> {
-        Ok(Request::Drop())
+        Ok(Request::DROP())
     }
 
     pub fn pub_callback(parts: Vec<&str>) -> Result<Self, String> {
@@ -183,7 +179,7 @@ impl Request {
             let channel = parts[1].to_string();
             let message = parts[2..].join(" ");
 
-            Ok(Request::Pub { channel, message })
+            Ok(Request::PUB { channel, message })
         }
     }
 
@@ -193,7 +189,7 @@ impl Request {
         } else if parts.len() > SUB_MAX_ARGS {
             Err("Invalid SUB request. Too many arguments.".to_string())
         } else {
-            Ok(Request::Sub(parts[1].to_string()))
+            Ok(Request::SUB(parts[1].to_string()))
         }
     }
 
@@ -203,7 +199,17 @@ impl Request {
         } else if parts.len() > SUB_MAX_ARGS {
             Err("Invalid UNSUB request. Too many arguments.".to_string())
         } else {
-            Ok(Request::Unsub(parts[1].to_string()))
+            Ok(Request::UNSUB(parts[1].to_string()))
+        }
+    }
+
+    pub fn ttl_callback(parts: Vec<&str>) -> Result<Self, String> {
+        if parts.len() < TTL_MIN_ARGS {
+            Err("Invalid TTL request. Need key argument.".to_string())
+        } else if parts.len() > TTL_MAX_ARGS {
+            Err("Invalid TTL request. Too many arguments.".to_string())
+        } else {
+            Ok(Request::TTL(parts[1].to_string()))
         }
     }
 }
