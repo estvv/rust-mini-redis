@@ -1,4 +1,4 @@
-# rust-kvs-multithreaded
+# rust-mini-redis
 
 A lightweight, thread-safe key-value store built in Rust with async I/O and pub/sub messaging.
 
@@ -48,13 +48,21 @@ A lightweight, thread-safe key-value store built in Rust with async I/O and pub/
 
 ## Features
 
-- **Thread-safe key-value store** — `Arc<Mutex<T>>` pattern for safe concurrent access across multiple clients
-- **Key expiration** — SET with EXP parameter for TTL (lazy expiration on read)
-- **Pub/Sub messaging** — broadcast channels for real-time message distribution to subscribers
-- **Client tracking** — unique IDs for subscription management and cleanup
-- **JSON persistence** — SAVE/LOAD commands for state snapshots
-- **Graceful shutdown** — Ctrl+C handling with clean termination
-- **Async I/O** — Tokio runtime with non-blocking TCP listener
+### Core Logic & Data Operations
+- **GET/SET/DEL** - Basic key-value store operations
+- **SET EXP** - Key expiration with TTL parameter
+- **DROP** - Clear all data from the store
+- **ASYNC SERVER** - Multi-threaded async server with Tokio runtime
+
+### Persistence & Recovery
+- **SAVE/LOAD** - JSON-based persistence to file
+- **GRACEFUL SHUTDOWN** - Signal handling for clean Ctrl+C termination
+
+### Protocol & Networking
+- **PUB/SUB/UNSUB** - Pub/Sub messaging with broadcast channels
+- **CLIENT TRACKING** - Connection tracking and cleanup
+
+See [FEATURES.md](FEATURES.md) for the full roadmap with planned features.
 
 ## Quick Start
 
@@ -165,15 +173,15 @@ struct Stock {
 
 ### Concurrency Model
 
-- **Single dispatcher lock** — All operations share one `Arc<Mutex<Dispatcher>>`
-- **Tokio tasks** — Each client spawns an async task
-- **Client IDs** — `AtomicU64` counter for unique IDs
-- **Broadcast channels** — `tokio::sync::broadcast` for pub/sub (capacity: 16)
+- **Single dispatcher lock** - All operations share one `Arc<Mutex<Dispatcher>>`
+- **Tokio tasks** - Each client spawns an async task
+- **Client IDs** - `AtomicU64` counter for unique IDs
+- **Broadcast channels** - `tokio::sync::broadcast` for pub/sub (capacity: 16)
 
 ### Expiration Strategy
 
-- **Lazy expiration** — Keys are checked and removed on `GET`
-- **No background cleanup** — Expired keys remain in memory until accessed
+- **Lazy expiration** - Keys are checked and removed on `GET`
+- **No background cleanup** - Expired keys remain in memory until accessed
 
 ### Message Flow
 
@@ -220,4 +228,4 @@ See [FEATURES.md](FEATURES.md) for planned and completed features.
 
 ## License
 
-Licensed under either of [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE) at your option.
+Licensed under [MIT](LICENSE-MIT)

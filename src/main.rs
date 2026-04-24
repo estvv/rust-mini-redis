@@ -131,7 +131,7 @@ async fn main() {
         .await
         .expect("Unable to open port");
 
-    println!("Mini-Redis started on port 6379.");
+    println!("Started on port 6379.");
     println!("Press Ctrl+C to shutdown.");
     println!("Waiting for connections...");
 
