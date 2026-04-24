@@ -2,7 +2,6 @@ pub mod channel_manager;
 pub mod command;
 pub mod commands;
 pub mod db;
-pub mod dispatcher;
 pub mod request;
 pub mod returns;
 pub mod stock;

@@ -18,21 +18,26 @@ A lightweight, thread-safe key-value store built in Rust with async I/O and pub/
 │  Connection Handler                │
 │  Client ID Assignment              │
 └──────────┬────────────────────────┘
-           │ Arc<Mutex<...>>
+           │ Arc<Db>
            ▼
 ┌───────────────────────────────────┐
-│  Dispatcher                        │
-│  Request Router                    │
-│  Client Subscription Tracking      │
+│  Db                                 │
+│  Arc<Mutex<DbInner>>               │
+│  ├─ Stock (HashMap)                │
+│  ├─ ChannelManager                 │
+│  └─ Client Subscriptions           │
 └──────────┬────────────────────────┘
            │
-    ┌──────┴──────┐
-    ▼             ▼
-┌─────────┐  ┌─────────────────┐
-│ Stock   │  │ ChannelManager  │
-│ HashMap │  │ Broadcast       │
-│ Expiry  │  │ Channels        │
-└─────────┘  └─────────────────┘
+           ▼
+┌───────────────────────────────────┐
+│  Command Trait                      │
+│  ├─ Get, Set, Del                  │
+│  ├─ Incr, Decr                     │
+│  ├─ Save, Load, Drop                │
+│  ├─ Publish, Subscribe              │
+│  ├─ Ttl, Exists                     │
+│  └─ Each implements execute()       │
+└───────────────────────────────────┘
 ```
 
 ## Modules
@@ -40,7 +45,9 @@ A lightweight, thread-safe key-value store built in Rust with async I/O and pub/
 | Module | Description |
 |--------|-------------|
 | `main.rs` | TCP server, connection handling, client ID assignment, graceful shutdown |
-| `dispatcher.rs` | Request routing, command execution, subscription tracking |
+| `db.rs` | Database layer with interior mutability pattern (Arc<Mutex<DbInner>>) |
+| `command.rs` | Command trait definition and re-exports |
+| `commands/` | Individual command implementations (Get, Set, Del, etc.) |
 | `request.rs` | Request parsing (GET, SET, DEL, EXISTS, INCR, DECR, SAVE, LOAD, DROP, PUB, SUB, UNSUB, TTL) |
 | `stock.rs` | Key-value storage with expiration support and JSON persistence |
 | `channel_manager.rs` | Pub/sub channel management with broadcast channels |
@@ -223,26 +230,61 @@ struct Stock {
 
 ### Concurrency Model
 
-- **Single dispatcher lock** - All operations share one `Arc<Mutex<Dispatcher>>`
+- **Arc<Db> with interior mutability** - `Db` wraps `Arc<Mutex<DbInner>>` for efficient cloning
+- **Command trait pattern** - Each command implements `execute(&self, db: &Arc<Db>, client_id: u64)`
 - **Tokio tasks** - Each client spawns an async task
 - **Client IDs** - `AtomicU64` counter for unique IDs
 - **Broadcast channels** - `tokio::sync::broadcast` for pub/sub (capacity: 16)
 
+### Command Pattern
+
+Commands are implemented using the **Command trait pattern**:
+
+```rust
+// Each command is a separate struct
+pub struct Get { pub key: String }
+pub struct Set { pub key: String, pub value: String, pub expiration: Option<u64> }
+
+// Command trait defines execution
+pub trait Command {
+    fn execute(&self, db: &Arc<Db>, client_id: u64) -> Return;
+}
+
+// Request parses and converts to Command
+impl Request {
+    pub fn into_command(self) -> Box<dyn Command> {
+        match self {
+            Request::GET(key) => Box::new(Get { key }),
+            // ...
+        }
+    }
+}
+```
+
+**Benefits**:
+- Easy to add new commands (just implement Command trait)
+- Self-contained command logic
+- Clean separation of concerns
+- Follows idiomatic Rust patterns
+
 ### Expiration Strategy
 
-- **Lazy expiration** - Keys are checked and removed on `GET`
+- **Lazy expiration** - Keys are checked and removed on `GET`, `TTL`, or `EXISTS`
 - **No background cleanup** - Expired keys remain in memory until accessed
 
 ### Message Flow
 
 ```
-Publisher                  Dispatcher                 Subscriber
-    │                          │                           │
-    │  PUB channel msg         │                           │
-    │ ───────────────────────► │                           │
-    │                          │  broadcast::send()        │
-    │                          │ ─────────────────────────►│
-    │                          │                           │  MESSAGE ...
+Publisher                  Db (Arc<Mutex<DbInner>>)        Subscriber
+    │                              │                           │
+    │  PUB channel msg             │                           │
+    │ ────────────────────────────►│                           │
+    │  Request::parse()            │                           │
+    │  .into_command()             │                           │
+    │  command.execute(&db)        │                           │
+    │                              │  broadcast::send()        │
+    │                              │ ─────────────────────────►│
+    │                              │                           │  MESSAGE ...
 ```
 
 ## Configuration
@@ -264,13 +306,39 @@ Publisher                  Dispatcher                 Subscriber
 
 ```
 src/
-├── main.rs            # Server entry point, connection handling
-├── dispatcher.rs      # Request routing, command execution
-├── request.rs         # Request parsing
-├── channel_manager.rs # Pub/sub channel management
-├── stock.rs           # Key-value storage with expiration
-└── returns.rs         # Return types
+├── main.rs                 # Server entry point, connection handling
+├── db.rs                   # Database layer (Arc<Mutex<DbInner>>)
+├── command.rs              # Command trait definition
+├── commands/               # Individual command implementations
+│   ├── mod.rs              # Module exports
+│   ├── get.rs              # GET command
+│   ├── set.rs              # SET command
+│   ├── del.rs              # DEL command
+│   ├── incr.rs             # INCR command
+│   ├── decr.rs             # DECR command
+│   ├── save.rs             # SAVE command
+│   ├── load.rs             # LOAD command
+│   ├── drop.rs             # DROP command
+│   ├── publish.rs          # PUB command
+│   ├── subscribe.rs        # SUB command
+│   ├── unsubscribe.rs       # UNSUB command
+│   ├── ttl.rs              # TTL command
+│   └── exists.rs           # EXISTS command
+├── request.rs              # Request parsing and conversion to Command
+├── stock.rs                # Key-value storage with expiration
+├── channel_manager.rs      # Pub/sub channel management
+├── returns.rs              # Return types
+└── lib.rs                  # Library exports
 ```
+
+### Architecture Evolution
+
+**Current Architecture (Command Trait Pattern)**:
+- `Db` with interior mutability (`Arc<Mutex<DbInner>>`)
+- Separate command files in `commands/` directory
+- Each command implements `Command` trait
+- `Arc<Db>` passed to each command's `execute()` method
+- Extensible: add new command by creating struct + implementing trait
 
 ## Roadmap
 
