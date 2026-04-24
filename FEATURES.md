@@ -5,7 +5,7 @@
 - [x] SET EXP - Key expiration support with TTL parameter.
 - [x] DROP - Clear all data from the store.
 - [x] ASYNC SERVER - Multi-threaded async server with Tokio runtime.
-- [ ] INCR/DECR - Atomic increment and decrement for thread-safe counting.
+- [x] INCR/DECR - Atomic increment and decrement for thread-safe counting.
 - [ ] MULTI/EXEC - Support for atomic transactions.
 - [ ] EVICTION POLICY - Basic memory management with LRU, LFU, etc.
 

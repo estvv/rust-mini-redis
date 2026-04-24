@@ -24,12 +24,10 @@ impl Dispatcher {
     pub fn dispatch(&mut self, request: Request, client_id: u64) -> Return {
         match request {
             Request::Get(key) => self.get(key),
-            Request::Set {
-                key,
-                value,
-                expiration,
-            } => self.set(key, value, expiration),
+            Request::Set { key, value, expiration } => self.set(key, value, expiration),
             Request::Del(key) => self.del(key),
+            Request::Incr(key) => self.incr(key),
+            Request::Decr(key) => self.decr(key),
             Request::Save(filename) => self.save(filename),
             Request::Load(filename) => self.load(filename),
             Request::Drop() => self.drop(),
@@ -65,6 +63,20 @@ impl Dispatcher {
 
         self.stock.del(&key);
         Return::Ok("OK".into())
+    }
+
+    pub fn incr(&mut self, key: String) -> Return {
+        match self.stock.incr(key) {
+            Ok(value) => Return::Ok(value.to_string()),
+            Err(e) => Return::Err(e),
+        }
+    }
+
+    pub fn decr(&mut self, key: String) -> Return {
+        match self.stock.decr(key) {
+            Ok(value) => Return::Ok(value.to_string()),
+            Err(e) => Return::Err(e),
+        }
     }
 
     pub fn save(&mut self, filename: String) -> Return {

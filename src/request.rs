@@ -3,12 +3,21 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Request {
     Get(String),
-    Set { key: String, value: String, expiration: Option<u64> },
+    Set {
+        key: String,
+        value: String,
+        expiration: Option<u64>,
+    },
     Del(String),
+    Incr(String),
+    Decr(String),
     Save(String),
     Load(String),
     Drop(),
-    Pub { channel: String, message: String },
+    Pub {
+        channel: String,
+        message: String,
+    },
     Sub(String),
     Unsub(String),
 }
@@ -20,6 +29,12 @@ const SET_MIN_ARGS: usize = 3;
 
 const DEL_MIN_ARGS: usize = 2;
 const DEL_MAX_ARGS: usize = 2;
+
+const INCR_MIN_ARGS: usize = 2;
+const INCR_MAX_ARGS: usize = 2;
+
+const DECR_MIN_ARGS: usize = 2;
+const DECR_MAX_ARGS: usize = 2;
 
 const SAVE_ARGS: usize = 2;
 const LOAD_ARGS: usize = 2;
@@ -41,6 +56,8 @@ impl Request {
             "GET" => Request::get_callback(parts),
             "SET" => Request::set_callback(parts),
             "DEL" => Request::del_callback(parts),
+            "INCR" => Request::incr_callback(parts),
+            "DECR" => Request::decr_callback(parts),
             "SAVE" => Request::save_callback(parts),
             "LOAD" => Request::load_callback(parts),
             "DROP" => Request::drop_callback(),
@@ -106,6 +123,26 @@ impl Request {
             Err("Invalid DEL request. Too many arguments".to_string())
         } else {
             Ok(Request::Del(parts[1].to_string()))
+        }
+    }
+
+    pub fn incr_callback(parts: Vec<&str>) -> Result<Self, String> {
+        if parts.len() < INCR_MIN_ARGS {
+            Err("Invalid INCR request. Too few arguments".to_string())
+        } else if parts.len() > INCR_MAX_ARGS {
+            Err("Invalid INCR request. Too many arguments".to_string())
+        } else {
+            Ok(Request::Incr(parts[1].to_string()))
+        }
+    }
+
+    pub fn decr_callback(parts: Vec<&str>) -> Result<Self, String> {
+        if parts.len() < DECR_MIN_ARGS {
+            Err("Invalid DECR request. Too few arguments".to_string())
+        } else if parts.len() > DECR_MAX_ARGS {
+            Err("Invalid DECR request. Too many arguments".to_string())
+        } else {
+            Ok(Request::Decr(parts[1].to_string()))
         }
     }
 

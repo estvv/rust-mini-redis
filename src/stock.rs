@@ -35,18 +35,12 @@ impl Stock {
     }
 
     pub fn set_with_expiration(&mut self, key: String, value: String, duration: u64) {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64;
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
         let expiration = now + duration;
 
         self.map.insert(
             key,
-            Data {
-                value,
-                expiration: Some(expiration),
-            },
+            Data { value, expiration: Some(expiration) }
         );
     }
 
@@ -55,10 +49,7 @@ impl Stock {
 
         if data.is_some() {
             if let Some(expiration) = data.unwrap().expiration {
-                let now = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis() as u64;
+                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
 
                 if now > expiration {
                     self.del(key);
@@ -94,5 +85,55 @@ impl Stock {
 
     pub fn drop(&mut self) {
         self.map.clear();
+    }
+
+    pub fn incr(&mut self, key: String) -> Result<i64, String> {
+        let current = self.map.get(&key).and_then(|data| {
+            if let Some(expiration) = data.expiration {
+                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
+
+                if now > expiration {
+                    return None;
+                }
+            }
+            data.value.parse::<i64>().ok()
+        });
+
+        let new_value = match current {
+            Some(v) => v + 1,
+            None => 1,
+        };
+
+        self.map.insert(
+            key,
+            Data { value: new_value.to_string(), expiration: None },
+        );
+
+        Ok(new_value)
+    }
+
+    pub fn decr(&mut self, key: String) -> Result<i64, String> {
+        let current = self.map.get(&key).and_then(|data| {
+            if let Some(expiration) = data.expiration {
+                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
+
+                if now > expiration {
+                    return None;
+                }
+            }
+            data.value.parse::<i64>().ok()
+        });
+
+        let new_value = match current {
+            Some(v) => v - 1,
+            None => -1,
+        };
+
+        self.map.insert(
+            key,
+            Data { value: new_value.to_string(), expiration: None },
+        );
+
+        Ok(new_value)
     }
 }

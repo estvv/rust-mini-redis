@@ -41,7 +41,7 @@ A lightweight, thread-safe key-value store built in Rust with async I/O and pub/
 |--------|-------------|
 | `main.rs` | TCP server, connection handling, client ID assignment, graceful shutdown |
 | `dispatcher.rs` | Request routing, command execution, subscription tracking |
-| `request.rs` | Request parsing (GET, SET, DEL, SAVE, LOAD, DROP, PUB, SUB, UNSUB) |
+| `request.rs` | Request parsing (GET, SET, DEL, INCR, DECR, SAVE, LOAD, DROP, PUB, SUB, UNSUB) |
 | `stock.rs` | Key-value storage with expiration support and JSON persistence |
 | `channel_manager.rs` | Pub/sub channel management with broadcast channels |
 | `returns.rs` | Return types (Ok, Err, NotFound, Subscribe, Unsubscribe) |
@@ -51,6 +51,7 @@ A lightweight, thread-safe key-value store built in Rust with async I/O and pub/
 ### Core Logic & Data Operations
 - **GET/SET/DEL** - Basic key-value store operations
 - **SET EXP** - Key expiration with TTL parameter
+- **INCR/DECR** - Atomic increment and decrement for counters
 - **DROP** - Clear all data from the store
 - **ASYNC SERVER** - Multi-threaded async server with Tokio runtime
 
@@ -88,6 +89,8 @@ telnet localhost 6379
 | `GET <key>` | Retrieve a value by key | `GET mykey` |
 | `SET <key> <value> [EXP <ms>]` | Set a key-value pair with optional expiration | `SET mykey hello EXP 5000` |
 | `DEL <key>` | Delete a key | `DEL mykey` |
+| `INCR <key>` | Increment value by 1 (creates key with value 1 if not exists) | `INCR counter` |
+| `DECR <key>` | Decrement value by 1 (creates key with value -1 if not exists) | `DECR counter` |
 | `SAVE <file.json>` | Save state to `./data/<file.json>` | `SAVE dump.json` |
 | `LOAD <file.json>` | Load state from `./data/<file.json>` | `LOAD dump.json` |
 | `DROP` | Clear all keys | `DROP` |
@@ -119,6 +122,25 @@ SAVE mydata.json
 OK
 LOAD mydata.json
 OK
+```
+
+### Counter Operations
+
+```
+INCR views
+1
+INCR views
+2
+INCR views
+3
+DECR views
+2
+SET counter 10
+OK
+INCR counter
+11
+DECR counter
+10
 ```
 
 ### Pub/Sub Messaging
