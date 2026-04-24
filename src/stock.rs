@@ -154,9 +154,11 @@ impl Stock {
     }
 
     pub fn exists(&mut self, keys: Vec<String>) -> Vec<(String, bool)> {
-        keys.into_iter().map(|key| {
-            let exists = self.get(&key).is_some();
-            (key, exists)
-        }).collect()
+        keys.into_iter()
+            .map(|key| {
+                let exists = self.get(&key).is_some();
+                (key, exists)
+            })
+            .collect()
     }
 }

@@ -1,3 +1,7 @@
+use crate::command::Command;
+use crate::commands::{
+    Decr, Del, Exists, Get, Incr, Load, Publish, Save, Set, Subscribe, Ttl, Unsubscribe,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -52,20 +56,20 @@ impl Request {
             return Err("Invalid request".into());
         }
 
-        match parts[0].to_uppercase().as_str() {
-            "GET" => Request::get_callback(parts),
-            "SET" => Request::set_callback(parts),
-            "DEL" => Request::del_callback(parts),
-            "INCR" => Request::incr_callback(parts),
-            "DECR" => Request::decr_callback(parts),
-            "SAVE" => Request::save_callback(parts),
-            "LOAD" => Request::load_callback(parts),
-            "DROP" => Request::drop_callback(),
-            "PUB" => Request::pub_callback(parts),
-            "SUB" => Request::sub_callback(parts),
-            "UNSUB" => Request::unsub_callback(parts),
-            "TTL" => Request::ttl_callback(parts),
-            "EXISTS" => Request::exists_callback(parts),
+        match parts[0].to_lowercase().as_str() {
+            "get" => Request::get_callback(parts),
+            "set" => Request::set_callback(parts),
+            "del" => Request::del_callback(parts),
+            "incr" => Request::incr_callback(parts),
+            "decr" => Request::decr_callback(parts),
+            "save" => Request::save_callback(parts),
+            "load" => Request::load_callback(parts),
+            "drop" => Request::drop_callback(),
+            "pub" => Request::pub_callback(parts),
+            "sub" => Request::sub_callback(parts),
+            "unsub" => Request::unsub_callback(parts),
+            "ttl" => Request::ttl_callback(parts),
+            "exists" => Request::exists_callback(parts),
             _ => Err("Unknown command".to_string()),
         }
     }
@@ -221,7 +225,27 @@ impl Request {
         if parts.len() < EXISTS_MIN_ARGS {
             Err("Invalid EXISTS request. Need key argument.".to_string())
         } else {
-            Ok(Request::EXISTS(parts[1..].iter().map(|s| s.to_string()).collect()))
+            Ok(Request::EXISTS(
+                parts[1..].iter().map(|s| s.to_string()).collect(),
+            ))
+        }
+    }
+
+    pub fn into_command(self) -> Box<dyn Command> {
+        match self {
+            Request::GET(key) => Box::new(Get { key }),
+            Request::SET { key, value, expiration } => Box::new(Set { key, value, expiration }),
+            Request::DEL(key) => Box::new(Del { key }),
+            Request::INCR(key) => Box::new(Incr { key }),
+            Request::DECR(key) => Box::new(Decr { key }),
+            Request::SAVE(filename) => Box::new(Save { filename }),
+            Request::LOAD(filename) => Box::new(Load { filename }),
+            Request::DROP() => Box::new(crate::commands::Drop),
+            Request::PUB { channel, message } => Box::new(Publish { channel, message }),
+            Request::SUB(channel) => Box::new(Subscribe { channel }),
+            Request::UNSUB(channel) => Box::new(Unsubscribe { channel }),
+            Request::TTL(key) => Box::new(Ttl { key }),
+            Request::EXISTS(keys) => Box::new(Exists { keys }),
         }
     }
 }
